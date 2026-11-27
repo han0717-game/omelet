@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>打造你的台式蛋餅 - 選餅皮・加料・醬料・秤重算錢</title>
+  <!-- Three.js 3D 引擎：載入後掛到 window，讓下方一般 script 使用 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    window.THREE = THREE;
+    window.OrbitControls = OrbitControls;
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+  <style>
+    /* 主題色：蛋黃早餐店 */
+    :root {
+      --body-a: #3a2c0c; --body-b: #0a0803;
+      --shell-a: #2a200a; --shell-b: #120e05;
+      --card: #2f240e; --tab: rgba(64, 50, 18, 0.8); --num: #423518; --opt: #2f240e;
+      --panel: rgba(22, 17, 7, 0.96); --footer: #0e0b04;
+      --thumb-a: #463818; --thumb-b: #221a09;
+      --edge-rgb: 255, 240, 200;
+      --accent: #d98a0b; --accent-rgb: 217, 138, 11; --accent-light: #ffc35a;
+      --sel: #5eead4; --sel-soft: rgba(94, 234, 212, 0.16); --sel-glow: rgba(94, 234, 212, 0.35);
+      --green: #22c55e; --yellow: #facc15;
+      --text-main: #fffaf0; --text-sub: #c4b28a; --text-dim: #ab9a74; --text-soft: #ede0c0;
+      --receipt: #d98a0b; --receipt-title: #a16207;
+    }
+
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    button, input { font-family: inherit; touch-action: manipulation; }
+    input { user-select: text; -webkit-user-select: text; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+
+    body {
+      background: radial-gradient(circle at 50% 18%, var(--body-a) 0%, var(--body-b) 100%);
+      color: var(--text-main);
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; min-height: 100dvh; overflow-x: hidden;
+    }
+
+    .app-shell {
+      width: 100%; max-width: 490px; height: 100vh; height: 100dvh; max-height: 950px;
+      background: linear-gradient(180deg, var(--shell-a) 0%, var(--shell-b) 100%);
+      display: flex; flex-direction: column; position: relative; overflow: hidden;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(var(--edge-rgb), 0.08);
+    }
+    @media (min-width: 520px) { .app-shell { height: 94vh; height: 94dvh; border-radius: 34px; } }
+
+    .top-header { padding: 10px 14px 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 1px solid rgba(var(--edge-rgb), 0.09); }
+    .brand-title { font-size: 1.15rem; font-weight: 900; letter-spacing: 0.4px; white-space: nowrap; }
+    .brand-title .serif { font-family: 'Playfair Display', serif; }
+    .brand-title span.highlight { color: var(--yellow); font-style: italic; margin-left: 3px; }
+    .header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-mini {
+      background: rgba(var(--edge-rgb), 0.08); border: 1px solid rgba(var(--edge-rgb), 0.16); color: var(--text-main);
+      padding: 4px 10px; border-radius: 16px; font-size: 0.74rem; font-weight: 700; cursor: pointer; transition: all 0.18s;
+    }
+    .btn-mini:active { transform: scale(0.94); }
+
+    .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 14px; background: rgba(0, 0, 0, 0.32); }
+    .stat-box { background: rgba(var(--edge-rgb), 0.04); border: 1px solid rgba(var(--edge-rgb), 0.09); border-radius: 10px; padding: 4px 8px; display: flex; flex-direction: column; align-items: center; }
+    .stat-label { font-size: 0.66rem; color: var(--text-sub); }
+    .stat-value { font-size: 0.94rem; font-weight: 900; margin-top: 1px; font-variant-numeric: tabular-nums; }
+    .stat-weight { color: var(--sel); }
+    .stat-kcal { color: var(--yellow); }
+    .stat-price { color: var(--green); }
+
+    .stepper { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 6px 14px; border-bottom: 1px solid rgba(var(--edge-rgb), 0.09); }
+    .step-tab {
+      display: flex; align-items: center; gap: 6px; min-width: 0; background: var(--tab);
+      border: 1.5px solid rgba(var(--edge-rgb), 0.12); border-radius: 10px; padding: 5px 7px;
+      color: var(--text-main); text-align: left; cursor: pointer; transition: all 0.18s;
+    }
+    .step-tab.active { border-color: var(--sel); background: var(--sel-soft); box-shadow: 0 0 12px var(--sel-glow); }
+    .step-tab.locked { opacity: 0.45; cursor: not-allowed; }
+    .step-num { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--num); color: var(--text-sub); font-size: 0.7rem; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+    .step-tab.done .step-num { background: var(--green); color: #052e16; }
+    .step-tab.active .step-num { background: var(--sel); color: #0b0604; }
+    .step-text { min-width: 0; }
+    .step-title, .step-sub { display: block; }
+    .step-title { font-size: 0.72rem; font-weight: 800; }
+    .step-sub { font-size: 0.6rem; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+    #scene-3d { width: 100%; height: clamp(220px, 36dvh, 330px); position: relative; flex-shrink: 0; overflow: hidden; touch-action: none; cursor: grab; }
+    #scene-3d:active { cursor: grabbing; }
+    #scene-3d canvas { display: block; }
+    .scene-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+    .scene-float {
+      position: absolute; left: 0; top: 0; font-size: 12px; font-weight: 900; color: #4ade80; white-space: nowrap;
+      text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 3px #000; animation: floatUp 0.9s ease-out forwards;
+    }
+    .scene-float.info { color: #fde047; animation-duration: 1.6s; }
+    @keyframes floatUp { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 -34px; } }
+    .scene-main-label {
+      position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); max-width: calc(100% - 16px);
+      font-size: 11px; font-weight: 800; color: #fde047; background: rgba(0, 0, 0, 0.72); padding: 3px 8px; border-radius: 8px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; z-index: 2;
+    }
+    .scene-hint {
+      position: absolute; left: 10px; top: 8px; max-width: calc(100% - 96px); font-size: 10.5px; font-weight: 700;
+      color: var(--text-soft); background: rgba(0, 0, 0, 0.55); padding: 3px 8px; border-radius: 10px;
+      pointer-events: none; transition: opacity 0.5s; z-index: 2;
+    }
+    .scene-hint.hide { opacity: 0; }
+    .scene-reset { position: absolute; right: 10px; top: 8px; z-index: 3; }
+
+    .menu-section { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--panel); border-top: 1px solid rgba(var(--edge-rgb), 0.09); overflow: hidden; }
+    .step-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid rgba(var(--edge-rgb), 0.06); }
+    .panel-title { font-size: 0.8rem; font-weight: 900; white-space: nowrap; }
+    .panel-hint { min-width: 0; font-size: 0.69rem; color: var(--sel); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .step-body { flex: 1; overflow-y: auto; padding: 10px 12px 12px; }
+
+    .choice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .choice-card {
+      position: relative; background: var(--card); border: 1.5px solid rgba(var(--edge-rgb), 0.09); border-radius: 14px; padding: 6px 4px 7px;
+      display: flex; flex-direction: column; align-items: center; text-align: center; color: var(--text-main); cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .choice-name { font-size: 0.8rem; font-weight: 900; white-space: nowrap; }
+    .choice-desc { font-size: 0.6rem; color: var(--text-sub); margin-bottom: 1px; }
+    .sub-label { font-size: 0.73rem; font-weight: 700; color: var(--text-soft); margin: 12px 0 6px; }
+    .step-body > .sub-label:first-child { margin-top: 0; }
+
+    .opt-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+    .opt-buttons.cols-4 { grid-template-columns: repeat(4, 1fr); }
+    .opt-buttons.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 359px) {
+      .opt-buttons { grid-template-columns: repeat(3, 1fr); }
+      .opt-buttons.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+    .opt-btn {
+      background: var(--opt); border: 1px solid rgba(var(--edge-rgb), 0.13); color: var(--text-soft); border-radius: 8px; padding: 6px 2px;
+      font-size: 0.72rem; font-weight: 700; cursor: pointer; text-align: center; white-space: nowrap; transition: all 0.16s;
+    }
+    .opt-btn small { display: block; font-size: 0.6rem; color: var(--text-dim); font-weight: 500; }
+    .opt-btn.active { background: var(--accent); color: #fff; border-color: var(--accent-light); box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45); }
+    .opt-btn.active small { color: rgba(255, 255, 255, 0.85); }
+    .opt-btn.extra-btn.active { background: #4d7c0f; border-color: #a3e635; box-shadow: 0 0 10px rgba(163, 230, 53, 0.4); }
+
+    .dishes-grid { flex: 1; overflow-y: auto; padding: 10px 12px 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-content: start; }
+    .dishes-grid::-webkit-scrollbar, .step-body::-webkit-scrollbar { width: 5px; }
+    .dishes-grid::-webkit-scrollbar-thumb, .step-body::-webkit-scrollbar-thumb { background: rgba(var(--edge-rgb), 0.22); border-radius: 4px; }
+    .grid-section-title { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 800; color: var(--text-sub); padding: 2px 2px 0; }
+    .dish-card { position: relative; }
+    .dish-pick {
+      width: 100%; height: 100%; background: var(--card); border: 1.5px solid rgba(var(--edge-rgb), 0.09); border-radius: 14px; padding: 5px 4px 6px;
+      display: flex; flex-direction: column; align-items: center; text-align: center; color: var(--text-main); cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    }
+    @media (hover: hover) {
+      .dish-pick:hover, .choice-card:hover { transform: translateY(-2px); border-color: rgba(var(--edge-rgb), 0.3); }
+    }
+    .dish-pick:active, .choice-card:active { transform: scale(0.95); }
+    .dish-card.selected .dish-pick, .choice-card.selected {
+      border-color: var(--accent); background: rgba(var(--accent-rgb), 0.16); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.32);
+    }
+    .dish-thumb-wrap {
+      width: 56px; height: 44px; border-radius: 50%; background: radial-gradient(circle, var(--thumb-a) 0%, var(--thumb-b) 100%);
+      border: 1px solid rgba(var(--edge-rgb), 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 3px; overflow: hidden;
+    }
+    .dish-thumb { display: block; width: 54px; height: 42px; pointer-events: none; }
+    .dish-badge-count {
+      position: absolute; top: -5px; right: -5px; background: var(--accent); color: #fff; font-size: 0.64rem; font-weight: 900;
+      min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); pointer-events: none; z-index: 2;
+    }
+    .dish-remove-btn {
+      position: absolute; top: -6px; left: -6px; background: #2563eb; color: #fff; border: none; font-size: 0.9rem; font-weight: 900;
+      width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); z-index: 2;
+    }
+    .dish-name, .dish-meta, .dish-price-tag { display: block; }
+    .dish-name { font-size: 0.71rem; font-weight: 800; color: var(--text-main); margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .dish-meta { font-size: 0.59rem; color: var(--text-dim); line-height: 1.25; }
+    .dish-meta .w-tag { color: var(--sel); font-weight: 700; }
+    .dish-meta .k-tag { color: #facc15; }
+    .dish-price-tag { margin-top: 2px; font-size: 0.69rem; font-weight: 900; color: #4ade80; }
+
+    .bottom-checkout { padding: 6px 14px 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); background: var(--footer); border-top: 1px solid rgba(var(--edge-rgb), 0.09); }
+    .deal-hint { font-size: 0.68rem; color: var(--text-sub); text-align: center; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deal-hint.unlocked { color: #fde047; font-weight: 800; }
+    .step-nav { display: flex; gap: 8px; }
+    .nav-back {
+      flex-shrink: 0; background: rgba(var(--edge-rgb), 0.08); border: 1px solid rgba(var(--edge-rgb), 0.18); color: var(--text-main);
+      border-radius: 28px; padding: 0 14px; font-size: 0.82rem; font-weight: 800; cursor: pointer;
+    }
+    .checkout-btn {
+      flex: 1; min-width: 0; background: var(--accent); border: none; border-radius: 28px; padding: 11px 18px; color: #fff;
+      font-size: 0.94rem; font-weight: 900; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer;
+      background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(0, 0, 0, 0.12) 100%);
+      box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.45); transition: transform 0.15s;
+    }
+    .checkout-btn:active { transform: scale(0.98); }
+    .checkout-btn:disabled { background: #3a3122; color: var(--text-dim); box-shadow: none; cursor: not-allowed; transform: none; }
+    .checkout-btn.ready { animation: readyPulse 1.3s ease-in-out infinite; }
+    @keyframes readyPulse {
+      0%, 100% { box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.45); }
+      50% { box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.5), 0 6px 26px rgba(var(--accent-rgb), 0.7); }
+    }
+    @media (prefers-reduced-motion: reduce) { .checkout-btn.ready { animation: none; } }
+    .checkout-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .checkout-right { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 419px) {
+      .brand-title .serif:not(.highlight) { display: none; }
+      .brand-title span.highlight { margin-left: 0; }
+    }
+    @media (max-height: 700px) {
+      #scene-3d { height: clamp(170px, 28dvh, 300px); }
+      .step-sub, .choice-card .dish-thumb-wrap { display: none; }
+      .step-body { padding-top: 8px; }
+      .sub-label { margin: 8px 0 4px; }
+      .opt-btn { padding: 4px 2px; }
+      .deal-hint { margin-bottom: 4px; }
+    }
+
+    .toast {
+      position: absolute; left: 50%; bottom: 96px; transform: translate(-50%, 10px); max-width: calc(100% - 32px);
+      background: rgba(20, 16, 6, 0.96); border: 1px solid var(--yellow); color: #fde047; font-size: 0.78rem; font-weight: 800;
+      padding: 7px 14px; border-radius: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 40;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(8, 6, 3, 0.84); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; padding: 16px; z-index: 50; }
+    .modal-backdrop.show { display: flex; }
+    .receipt-card {
+      background: #fffdf9; color: #2b2214; width: 100%; max-width: 395px; border-radius: 20px; padding: 16px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7); max-height: 88vh; overflow-y: auto; border: 3px solid var(--receipt);
+    }
+    .receipt-header { text-align: center; border-bottom: 2px dashed #ddd0b8; padding-bottom: 10px; margin-bottom: 10px; }
+    .receipt-header h3 { font-size: 1.12rem; color: var(--receipt-title); font-weight: 900; }
+    .receipt-header p { font-size: 0.73rem; color: #7a6a52; margin-top: 2px; }
+    .receipt-list { font-size: 0.8rem; margin-bottom: 10px; }
+    .receipt-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dotted #ddd0b8; }
+    .receipt-row.muted { color: #a8988a; }
+    .receipt-row.muted strong { font-weight: 600; }
+    .receipt-row-left { display: flex; flex-direction: column; }
+    .receipt-row-sub { font-size: 0.69rem; color: #7a6a52; }
+    .receipt-price { font-weight: 900; white-space: nowrap; }
+    .receipt-summary { background: #f7f0e2; padding: 10px 12px; border-radius: 12px; font-size: 0.82rem; margin-bottom: 12px; }
+    .summary-line { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; font-weight: 700; }
+    .summary-line.fun { color: #a16207; }
+    .summary-line.discount { color: #16a34a; }
+    .summary-line.total { font-size: 1.08rem; color: #dc2626; border-top: 1px solid #ddd0b8; padding-top: 6px; margin-top: 6px; font-weight: 900; }
+    .cash-section { border-top: 2px dashed #ddd0b8; padding-top: 10px; }
+    .cash-title { font-size: 0.8rem; font-weight: 800; }
+    .cash-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 6px 0 8px; }
+    .cash-btn { background: #eee6d6; border: none; padding: 7px 2px; border-radius: 8px; font-size: 0.78rem; font-weight: 800; cursor: pointer; color: #2b2214; transition: 0.15s; }
+    .cash-btn.short { opacity: 0.45; }
+    .cash-btn.active { background: #0f766e; color: #fff; opacity: 1; }
+    .cash-custom { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; }
+    .cash-custom input { flex: 1; min-width: 0; padding: 6px 10px; border: 1.5px solid #ddd0b8; border-radius: 8px; font-size: 1rem; font-weight: 800; color: #2b2214; background: #fff; }
+    .cash-result { font-size: 0.86rem; font-weight: 900; color: #0f766e; }
+    .cash-result.pending { color: #7a6a52; font-weight: 700; }
+    .cash-result.short { color: #dc2626; }
+    .close-modal-btn { width: 100%; margin-top: 12px; background: #2b2214; color: #fff; border: none; padding: 11px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="top-header">
+    <div class="brand-title">
+      <span class="serif">Build your</span>
+      <span class="serif highlight">台式蛋餅</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-mini" type="button" onclick="randomOrder()">🎲 隨機</button>
+      <button class="btn-mini" type="button" onclick="clearAll()">🔄 重來</button>
+      <button class="btn-mini" type="button" id="btn-sound" onclick="toggleSound()" aria-label="音效開關">🔊</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-box"><span class="stat-label">⚖️ 蛋餅重量</span><span class="stat-value stat-weight" id="ui-total-weight">0 g</span></div>
+    <div class="stat-box"><span class="stat-label">🔥 總卡路里</span><span class="stat-value stat-kcal" id="ui-total-kcal">0 kcal</span></div>
+    <div class="stat-box"><span class="stat-label">💰 總價</span><span class="stat-value stat-price" id="ui-total-price">NT$ 0</span></div>
+  </div>
+
+  <nav class="stepper" aria-label="點餐步驟">
+    <button class="step-tab" type="button" id="step-tab-1" onclick="goToStep(1)">
+      <span class="step-num" id="step-num-1">1</span>
+      <span class="step-text"><span class="step-title">餅皮・蛋</span><span class="step-sub" id="step-sub-1">餅皮／粉漿／酥皮</span></span>
+    </button>
+    <button class="step-tab" type="button" id="step-tab-2" onclick="goToStep(2)">
+      <span class="step-num" id="step-num-2">2</span>
+      <span class="step-text"><span class="step-title">加料</span><span class="step-sub" id="step-sub-2">起司・培根・玉米…</span></span>
+    </button>
+    <button class="step-tab" type="button" id="step-tab-3" onclick="goToStep(3)">
+      <span class="step-num" id="step-num-3">3</span>
+      <span class="step-text"><span class="step-title">醬料・飲料</span><span class="step-sub" id="step-sub-3">醬油膏・切法</span></span>
+    </button>
+  </nav>
+
+  <div id="scene-3d">
+    <div class="scene-labels" id="scene-labels"></div>
+    <div class="scene-main-label" id="scene-main-label"></div>
+    <div class="scene-hint" id="scene-hint">👆 拖曳轉動・雙指／滾輪縮放・看蛋餅的螺旋切面</div>
+    <button class="btn-mini scene-reset" type="button" id="scene-reset" onclick="if (sceneView) sceneView.resetView()">⟲ 視角</button>
+  </div>
+
+  <div class="menu-section">
+    <section class="step-panel" id="panel-1">
+      <div class="panel-head"><span class="panel-title">🥚 ① 選餅皮與蛋</span><span class="panel-hint" id="ui-p1-hint"></span></div>
+      <div class="step-body">
+        <div class="choice-grid" id="crust-grid"></div>
+        <div class="sub-label">🍳 幾顆蛋・要不要加蔥</div>
+        <div class="opt-buttons cols-4" id="egg-buttons"></div>
+      </div>
+    </section>
+
+    <section class="step-panel" id="panel-2" hidden>
+      <div class="panel-head"><span class="panel-title">🥓 ② 加料（捲在蛋餅裡）</span><span class="panel-hint" id="ui-p2-hint"></span></div>
+      <div class="dishes-grid" id="grid-addons"></div>
+    </section>
+
+    <section class="step-panel" id="panel-3" hidden>
+      <div class="panel-head"><span class="panel-title">🍶 ③ 醬料・切法・飲料</span><span class="panel-hint" id="ui-p3-hint"></span></div>
+      <div class="step-body">
+        <div class="sub-label">🍶 醬料（免費，可複選）</div>
+        <div class="opt-buttons cols-4" id="sauce-buttons"></div>
+        <div class="sub-label">🔪 要切嗎？</div>
+        <div class="opt-buttons cols-2" id="cut-buttons"></div>
+        <div class="sub-label">🥤 飲料（加料 2 樣＋飲料 = 套餐）</div>
+        <div class="opt-buttons" id="drink-buttons"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="bottom-checkout">
+    <div class="deal-hint" id="ui-deal-hint"></div>
+    <div class="step-nav">
+      <button class="nav-back" type="button" id="btn-back" onclick="goToStep(state.step - 1)" hidden>← 上一步</button>
+      <button class="checkout-btn" type="button" id="btn-next" onclick="goNextStep()">
+        <span class="checkout-label" id="ui-next-label"></span>
+        <span class="checkout-right" id="ui-checkout-btn-text">NT$ 0</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-backdrop" id="checkout-modal" onclick="if (event.target === this) closeCheckoutModal()">
+    <div class="receipt-card" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+      <div class="receipt-header">
+        <h3 id="receipt-title">🥚 晨光早餐店・秤重營養結帳單</h3>
+        <p>餅皮・蛋・加料・醬料・飲料・重量(g)・熱量(kcal)・金額明細</p>
+      </div>
+      <div class="receipt-list" id="receipt-items"></div>
+      <div class="receipt-summary" id="receipt-summary"></div>
+      <div class="cash-section">
+        <div class="cash-title">💵 付現找錢試算：顧客付了多少？</div>
+        <div class="cash-btns" id="cash-btns"></div>
+        <label class="cash-custom">
+          <span>其他金額 NT$</span>
+          <input type="number" id="cash-input" inputmode="numeric" min="0" step="1" placeholder="自行輸入" oninput="setPaidCashFromInput(this.value)">
+        </label>
+        <div class="cash-result pending" id="cash-change-result"></div>
+      </div>
+      <button class="close-modal-btn" type="button" onclick="closeCheckoutModal()">繼續調整</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * 1. 資料庫：3 種餅皮、蛋數與蔥花、12 種加料、4 種醬料、切法、5 種飲料
+ * ============================================================================
+ */
+const TAU = Math.PI * 2;
+
+const CRUSTS = [
+  { id: 'skin', name: '餅皮蛋餅', short: '餅皮', desc: '薄Q有嚼勁', weight: 60, kcal: 170, price: 30, pal: { side: '#f0dcaa', spot: '#cf9a4e', layer: '#f6e7c4' } },
+  { id: 'batter', name: '古早味粉漿', short: '粉漿', desc: '現煎軟Q', weight: 80, kcal: 180, price: 35, pal: { side: '#f5ead0', spot: '#d9b273', layer: '#faf2de' } },
+  { id: 'flaky', name: '酥皮蛋餅', short: '酥皮', desc: '層層酥脆', weight: 70, kcal: 260, price: 40, flaky: true, pal: { side: '#e6b45a', spot: '#b4741f', layer: '#f2d28a' } }
+];
+const EGG = { weight: 50, kcal: 75 };
+const EGG_OPTIONS = [{ n: 1, price: 0 }, { n: 2, price: 10 }, { n: 3, price: 20 }];
+const SCALLION = { weight: 5, kcal: 1 };
+const ADDONS = [
+  { id: 'cheese', name: '起司', unit: '1 片', weight: 20, kcal: 65, price: 10 },
+  { id: 'corn', name: '玉米', unit: '1 份', weight: 30, kcal: 30, price: 10 },
+  { id: 'tuna', name: '鮪魚', unit: '1 份', weight: 30, kcal: 70, price: 15 },
+  { id: 'bacon', name: '培根', unit: '2 片', weight: 25, kcal: 110, price: 15 },
+  { id: 'ham', name: '火腿', unit: '2 片', weight: 30, kcal: 50, price: 10 },
+  { id: 'floss', name: '肉鬆', unit: '1 份', weight: 12, kcal: 55, price: 10 },
+  { id: 'hash_brown', name: '薯餅', unit: '1 片', weight: 60, kcal: 150, price: 15 },
+  { id: 'hot_dog', name: '熱狗', unit: '1 條', weight: 40, kcal: 120, price: 10 },
+  { id: 'basil', name: '九層塔', unit: '1 份', weight: 5, kcal: 2, price: 5 },
+  { id: 'kimchi', name: '泡菜', unit: '1 份', weight: 30, kcal: 10, price: 10 },
+  { id: 'cabbage', name: '高麗菜絲', unit: '1 份', weight: 30, kcal: 8, price: 5 },
+  { id: 'chicken', name: '雞排', unit: '1 片', weight: 80, kcal: 220, price: 25 }
+];
+const SAUCES = [
+  { id: 'soy_paste', name: '醬油膏', weight: 10, kcal: 15, color: 0x3d1f0e },
+  { id: 'sweet_chili', name: '甜辣醬', weight: 10, kcal: 20, color: 0xe2502a },
+  { id: 'chili', name: '辣椒醬', weight: 8, kcal: 10, color: 0x9e140c },
+  { id: 'ketchup', name: '番茄醬', weight: 10, kcal: 12, color: 0xd42a1f }
+];
+const DRINKS = [
+  { id: 'none', name: '不要', price: 0, weight: 0, kcal: 0 },
+  { id: 'soy', name: '豆漿', price: 20, weight: 400, kcal: 220, color: '#efe4cc', alpha: 1, straw: 0x2f6fd6 },
+  { id: 'black_tea', name: '紅茶', price: 20, weight: 400, kcal: 150, color: '#8a3b12', alpha: 0.85, straw: 0xe8467c },
+  { id: 'milk_tea', name: '奶茶', price: 25, weight: 400, kcal: 230, color: '#c8a07a', alpha: 1, straw: 0x3aa35a },
+  { id: 'rice_milk', name: '米漿', price: 25, weight: 400, kcal: 280, color: '#d4b07e', alpha: 1, straw: 0xd62f2f }
+];
+
+const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
+const ADDON_MAP = byId(ADDONS);
+const SAUCE_MAP = byId(SAUCES);
+
+const MAX_ADDONS = 5;
+const MAX_EACH = 2;
+const COMBO_DISCOUNT = 15;     // 加料 2 樣以上 + 飲料 的早餐套餐
+const DAILY_KCAL = 2000;
+const CASH_BILLS = [100, 200, 500, 1000];
+
+/**
+ * ============================================================================
+ * 2. 共用工具：固定種子亂數、音效、2D 繪圖小工具、3D 快取
+ * ============================================================================
+ */
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function makeRng(seed) {
+  let a = (seed >>> 0) || 1;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const state = {
+  step: 1,
+  crust: null,
+  eggs: 1,
+  scallion: true,
+  addons: [],
+  sauces: [],
+  cut: true,
+  drink: 'none',
+  cashChoice: null,
+  customCash: null,
+  soundOn: true
+};
+
+let audioCtx = null;
+function playTone(freq = 440, type = 'sine', duration = 0.09) {
+  if (!state.soundOn) return;
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.75, audioCtx.currentTime + duration);
+    gain.gain.setValueAtTime(0.14, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (e) {}
+}
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const t = amt < 0 ? 0 : 255;
+  const p = Math.abs(amt);
+  const mix = c => Math.round(c + (t - c) * p);
+  return `rgb(${mix(n >> 16)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
+}
+
+function blob2d(ctx, cx, cy, r, rnd, pts = 9, ry = r) {
+  const ring = [];
+  for (let i = 0; i < pts; i++) {
+    const a = (i / pts) * TAU;
+    const k = 0.78 + rnd() * 0.4;
+    ring.push([cx + Math.cos(a) * r * k, cy + Math.sin(a) * ry * k]);
+  }
+  const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  const start = mid(ring[pts - 1], ring[0]);
+  ctx.beginPath();
+  ctx.moveTo(start[0], start[1]);
+  for (let i = 0; i < pts; i++) {
+    const m = mid(ring[i], ring[(i + 1) % pts]);
+    ctx.quadraticCurveTo(ring[i][0], ring[i][1], m[0], m[1]);
+  }
+  ctx.closePath();
+}
+
+function easeOutBounce(x) {
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  if (x < 1 / d1) return n1 * x * x;
+  if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75;
+  if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375;
+  return n1 * (x -= 2.625 / d1) * x + 0.984375;
+}
+
+function easeOutCubic(x) {
+  return 1 - Math.pow(1 - x, 3);
+}
+
+const geoCache = {};
+function cachedGeo(key, make) {
+  if (!geoCache[key]) geoCache[key] = make();
+  return geoCache[key];
+}
+
+const matCache = {};
+function cachedMat(key, make) {
+  if (!matCache[key]) matCache[key] = make();
+  return matCache[key];
+}
+
+function canvasTexture(cvs, repeat = false) {
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  if (repeat) {
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+  }
+  return tex;
+}
+
+function makeCanvas(S, draw) {
+  const cvs = document.createElement('canvas');
+  cvs.width = S;
+  cvs.height = S;
+  draw(cvs.getContext('2d'), S);
+  return cvs;
+}
+
+function tiled(S, x, y, draw) {
+  [-S, 0, S].forEach(dx => [-S, 0, S].forEach(dy => draw(x + dx, y + dy)));
+}
+
+function buildDrinkCup(drink) {
+  const g = new THREE.Group();
+  const H = 4.6;
+  const rTop = 1.3;
+  const rBot = 1.0;
+  const cup = new THREE.Mesh(
+    cachedGeo('cup', () => new THREE.CylinderGeometry(rTop, rBot, H, 40, 1, true)),
+    cachedMat('cup', () => new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false }))
+  );
+  cup.position.y = H / 2;
+  const lh = H * 0.8;
+  const liquid = new THREE.Mesh(
+    cachedGeo('liquid', () => new THREE.CylinderGeometry(rBot + (rTop - rBot) * 0.8 - 0.07, rBot - 0.07, lh, 40)),
+    cachedMat('drink|' + drink.id, () => new THREE.MeshStandardMaterial({ color: drink.color, roughness: 0.2, transparent: drink.alpha < 1, opacity: drink.alpha }))
+  );
+  liquid.position.y = lh / 2 + 0.05;
+  liquid.castShadow = true;
+  const film = new THREE.Mesh(
+    cachedGeo('film', () => {
+      const c = new THREE.CircleGeometry(rTop + 0.02, 40);
+      c.rotateX(-Math.PI / 2);
+      return c;
+    }),
+    cachedMat('film', () => new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, roughness: 0.2 }))
+  );
+  film.position.y = H - 0.04;
+  const rim = new THREE.Mesh(
+    cachedGeo('cup-rim', () => {
+      const t = new THREE.TorusGeometry(rTop, 0.06, 8, 48);
+      t.rotateX(Math.PI / 2);
+      return t;
+    }),
+    cachedMat('cup-rim', () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }))
+  );
+  rim.position.y = H;
+  const straw = new THREE.Mesh(
+    cachedGeo('straw', () => new THREE.CylinderGeometry(0.14, 0.14, 6.2, 12)),
+    cachedMat('straw|' + drink.straw, () => new THREE.MeshStandardMaterial({ color: drink.straw, roughness: 0.4 }))
+  );
+  straw.position.set(0.35, H + 0.2, 0.1);
+  straw.rotation.z = -0.16;
+  straw.castShadow = true;
+  g.add(cup, liquid, film, rim, straw);
+  return g;
+}
+
+/**
+ * ============================================================================
+ * 3. Canvas 2D 手繪：捲在蛋餅裡的每一樣料、螺旋切面、餅皮外皮（縮圖共用同一組函式）
+ * ============================================================================
+ */
+
+// 一小塊料：以 (0,0) 為中心、半徑約 10 × s
+function drawChunk(ctx, id, s, rnd) {
+  ctx.save();
+  ctx.scale(s, s);
+  switch (id) {
+    case 'cheese':
+      ctx.fillStyle = '#f6b52f';
+      ctx.beginPath(); ctx.roundRect(-10, -3, 20, 6, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 236, 170, 0.7)';
+      ctx.fillRect(-7, -2, 12, 1.2);
+      break;
+    case 'corn':
+      [[-4, -1], [0, 1.5], [4, -0.5]].forEach(([x, y]) => {
+        ctx.fillStyle = '#f2bd2c';
+        ctx.beginPath(); ctx.roundRect(x - 2.4, y - 2.8, 4.8, 5.6, 1.8); ctx.fill();
+        ctx.fillStyle = '#fde58a';
+        ctx.beginPath(); ctx.roundRect(x - 1.4, y - 2, 2, 2.4, 1); ctx.fill();
+      });
+      break;
+    case 'tuna':
+      ctx.fillStyle = '#e2cbb0';
+      blob2d(ctx, 0, 0, 9, rnd, 9, 5.5); ctx.fill();
+      ctx.fillStyle = '#c9a888';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.ellipse(-6 + rnd() * 12, -2.5 + rnd() * 5, 2.2, 1.1, rnd() * 3, 0, TAU); ctx.fill();
+      }
+      break;
+    case 'bacon': {
+      const wave = (x, off) => off + Math.sin(x * 0.7) * 1.2;
+      ctx.beginPath();
+      for (let x = -10; x <= 10; x++) ctx.lineTo(x, wave(x, -2.6));
+      for (let x = 10; x >= -10; x--) ctx.lineTo(x, wave(x, 2.6));
+      ctx.closePath();
+      ctx.fillStyle = '#b8402e';
+      ctx.fill();
+      ctx.strokeStyle = '#f3d2bd';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let x = -9; x <= 9; x++) ctx.lineTo(x, wave(x, 0.2));
+      ctx.stroke();
+      break;
+    }
+    case 'ham':
+      ctx.fillStyle = '#d87580';
+      ctx.beginPath(); ctx.roundRect(-10, -3.5, 20, 7, 2); ctx.fill();
+      ctx.fillStyle = '#ee9aa2';
+      ctx.beginPath(); ctx.roundRect(-9, -2.5, 18, 5, 1.5); ctx.fill();
+      break;
+    case 'floss':
+      for (let i = 0; i < 14; i++) {
+        ctx.strokeStyle = ['#c48a4a', '#a86e34', '#dcae72'][i % 3];
+        ctx.lineWidth = 1.1;
+        const x = (rnd() - 0.5) * 16;
+        const y = (rnd() - 0.5) * 6;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + (rnd() - 0.5) * 8, y + (rnd() - 0.5) * 6, x + (rnd() - 0.5) * 8, y + (rnd() - 0.5) * 6); ctx.stroke();
+      }
+      break;
+    case 'hash_brown':
+      ctx.fillStyle = '#b8762a';
+      ctx.beginPath(); ctx.roundRect(-10, -4, 20, 8, 3); ctx.fill();
+      ctx.fillStyle = '#e7b04f';
+      ctx.beginPath(); ctx.roundRect(-9, -3, 18, 6, 2.5); ctx.fill();
+      ctx.strokeStyle = 'rgba(160, 100, 30, 0.6)';
+      ctx.lineWidth = 0.8;
+      for (let x = -7; x <= 7; x += 2.5) {
+        ctx.beginPath(); ctx.moveTo(x, -2.5); ctx.lineTo(x + 1.5, 2.5); ctx.stroke();
+      }
+      break;
+    case 'hot_dog':
+      ctx.fillStyle = '#9e2f24';
+      ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#e88a7a';
+      ctx.beginPath(); ctx.arc(0, 0, 4.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 210, 200, 0.7)';
+      ctx.beginPath(); ctx.arc(-1, -1, 1.5, 0, TAU); ctx.fill();
+      break;
+    case 'basil':
+      ctx.fillStyle = '#2f6e2a';
+      ctx.beginPath(); ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-1, -5.5, 8, 0); ctx.quadraticCurveTo(-1, 5.5, -8, 0); ctx.fill();
+      ctx.strokeStyle = '#8cc46e';
+      ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
+      break;
+    case 'kimchi':
+      ctx.fillStyle = '#d9532c';
+      blob2d(ctx, 0, 0, 8.5, rnd, 8, 5); ctx.fill();
+      ctx.strokeStyle = '#f2b08a';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-6, 1); ctx.quadraticCurveTo(0, -3, 6, 1.5); ctx.stroke();
+      ctx.fillStyle = '#a8261a';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.arc(-5 + rnd() * 10, -2 + rnd() * 4, 0.7, 0, TAU); ctx.fill();
+      }
+      break;
+    case 'cabbage':
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        ctx.strokeStyle = i % 2 ? '#cfe6a8' : '#eef6dc';
+        ctx.lineWidth = 1.4;
+        const y = -4 + i * 1.3;
+        ctx.beginPath(); ctx.moveTo(-9, y); ctx.quadraticCurveTo(0, y + (rnd() - 0.5) * 4, 9, y + (rnd() - 0.5) * 2); ctx.stroke();
+      }
+      break;
+    case 'chicken':
+      ctx.fillStyle = '#c98232';
+      ctx.beginPath(); ctx.roundRect(-11, -4.5, 22, 9, 3); ctx.fill();
+      ctx.fillStyle = '#f6ead6';
+      ctx.beginPath(); ctx.roundRect(-9, -2.6, 18, 5.2, 2); ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+// 阿基米德螺線：蛋餅捲起來的那一層層
+function spiralPath(ctx, r0, pitch, turns, offset = 0) {
+  ctx.beginPath();
+  for (let t = 0; t <= turns * TAU; t += 0.05) {
+    const r = r0 + (t / TAU) * pitch + offset;
+    ctx.lineTo(Math.cos(t) * r, Math.sin(t) * r);
+  }
+}
+
+// 螺旋切面貼圖：蛋黃色的蛋 + 一圈圈餅皮 + 夾在中間的料
+function drawSpiralTex(ctx, S, c) {
+  const rnd = makeRng(hashStr(c.key));
+  const R = S / 2;
+  const pal = c.crust.pal;
+  ctx.clearRect(0, 0, S, S);
+  ctx.save();
+  ctx.translate(R, R);
+
+  ctx.fillStyle = '#f2c94c';
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+  for (let i = 0; i < 120; i++) {
+    const a = rnd() * TAU;
+    const d = Math.sqrt(rnd()) * R * 0.9;
+    ctx.fillStyle = rnd() < 0.6 ? 'rgba(250, 224, 130, 0.7)' : 'rgba(255, 248, 225, 0.6)';
+    blob2d(ctx, Math.cos(a) * d, Math.sin(a) * d, 6 + rnd() * 10, rnd); ctx.fill();
+  }
+
+  const turns = 2.1 + c.eggs * 0.25;
+  const r0 = R * 0.05;
+  const pitch = (R * 0.86 - r0) / turns;
+  const bandAt = t => r0 + (t / TAU) * pitch + pitch * 0.5;
+
+  // 料夾在蛋那一層
+  c.addons.forEach(id => {
+    for (let j = 0; j < 5; j++) {
+      const t = (0.25 + rnd() * 0.72) * turns * TAU;
+      const r = bandAt(t);
+      ctx.save();
+      ctx.translate(Math.cos(t) * r, Math.sin(t) * r);
+      ctx.rotate(t + Math.PI / 2);
+      drawChunk(ctx, id, pitch * 0.031, rnd);
+      ctx.restore();
+    }
+  });
+  if (c.scallion) {
+    for (let i = 0; i < 40; i++) {
+      const t = rnd() * turns * TAU;
+      const r = bandAt(t) + (rnd() - 0.5) * pitch * 0.4;
+      ctx.strokeStyle = i % 2 ? '#3f9e3a' : '#6cbf4a';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.arc(Math.cos(t) * r, Math.sin(t) * r, 3, 0, TAU); ctx.stroke();
+    }
+  }
+
+  // 餅皮層
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = pal.layer;
+  ctx.lineWidth = pitch * 0.32;
+  spiralPath(ctx, r0, pitch, turns);
+  ctx.stroke();
+  ctx.strokeStyle = pal.spot;
+  if (c.crust.flaky) {
+    ctx.lineWidth = 1.6;
+    [-0.11, 0, 0.11].forEach(k => {
+      spiralPath(ctx, r0, pitch, turns, pitch * k);
+      ctx.stroke();
+    });
+  } else {
+    ctx.lineWidth = 1.4;
+    spiralPath(ctx, r0, pitch, turns, pitch * 0.15);
+    ctx.stroke();
+  }
+
+  // 最外面那層煎得金黃的皮
+  ctx.strokeStyle = pal.side;
+  ctx.lineWidth = R * 0.1;
+  ctx.beginPath(); ctx.arc(0, 0, R * 0.95, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = pal.spot;
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(0, 0, R - 2, 0, TAU); ctx.stroke();
+  ctx.restore();
+}
+
+// 縮圖用的小螺旋切面
+function spiral2d(ctx, x, y, r, crust) {
+  const pal = crust.pal;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = shade(pal.side, -0.15);
+  ctx.beginPath(); ctx.ellipse(r * 0.35, r * 0.12, r, r, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f2c94c';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = pal.layer;
+  ctx.lineWidth = r * 0.14;
+  spiralPath(ctx, r * 0.05, r * 0.32, 2.5);
+  ctx.stroke();
+  ctx.strokeStyle = pal.side;
+  ctx.lineWidth = r * 0.16;
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.92, 0, TAU); ctx.stroke();
+  if (crust.flaky) {
+    ctx.strokeStyle = pal.spot;
+    ctx.lineWidth = 0.8;
+    spiralPath(ctx, r * 0.05, r * 0.32, 2.5, r * 0.04);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawArt(ctx, id, w, h) {
+  ctx.save();
+  ctx.clearRect(0, 0, w, h);
+  ctx.translate(w / 2, h / 2);
+  const scale = Math.min(w / 96, h / 72);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+  ctx.beginPath(); ctx.ellipse(0, 8, 38, 19, 0, 0, TAU); ctx.fill();
+  const rnd = makeRng(hashStr('art|' + id));
+  if (id.startsWith('crust_')) {
+    const crust = CRUSTS.find(c => 'crust_' + c.id === id);
+    [[-20, 4], [0, -3], [20, 4]].forEach(([x, y]) => spiral2d(ctx, x, y, 11, crust));
+  } else if (id === 'hot_dog') {
+    const g = ctx.createLinearGradient(0, -7, 0, 7);
+    g.addColorStop(0, '#d9574a');
+    g.addColorStop(1, '#8a2a20');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.roundRect(-30, -7, 46, 14, 7); ctx.fill();
+    ctx.save(); ctx.translate(26, 4); drawChunk(ctx, 'hot_dog', 1.3, rnd); ctx.restore();
+  } else if (['cheese', 'ham', 'hash_brown', 'chicken', 'bacon'].includes(id)) {
+    ctx.save(); ctx.translate(-3, 4); ctx.rotate(-0.1); drawChunk(ctx, id, 2.6, rnd); ctx.restore();
+    if (id === 'ham' || id === 'bacon') {
+      ctx.save(); ctx.translate(3, -6); ctx.rotate(0.12); drawChunk(ctx, id, 2.4, rnd); ctx.restore();
+    }
+  } else if (ADDON_MAP[id]) {
+    [[-16, 4], [0, -6], [15, 3], [-4, 8], [8, 9]].forEach(([x, y]) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate((rnd() - 0.5) * 1.5); drawChunk(ctx, id, 1.35, rnd); ctx.restore();
+    });
+  }
+  ctx.restore();
+}
+
+/**
+ * ============================================================================
+ * 4. 共用 3D 場景骨架：相機、轉動控制、燈光、木桌、點擊、動畫
+ * ============================================================================
+ */
+let sceneView = null;
+
+class SceneBase {
+  constructor(container, cfg) {
+    this.container = container;
+    this.cfg = cfg;
+    this.labelLayer = document.getElementById('scene-labels');
+    this.mainLabel = document.getElementById('scene-main-label');
+    this.hint = document.getElementById('scene-hint');
+    this.size = { w: 1, h: 1 };
+    this.tweens = [];
+    this.camTween = null;
+    this.tmpVec = new THREE.Vector3();
+    this.pickables = [];
+    this.homeDir = new THREE.Vector3(...cfg.dir).normalize();
+
+    const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.prepend(renderer.domElement);
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(35, 1, 0.5, 200);
+
+    const controls = this.controls = new OrbitControls(this.camera, renderer.domElement);
+    controls.target.set(...cfg.target);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.rotateSpeed = 0.5;
+    controls.minDistance = cfg.minD;
+    controls.maxDistance = cfg.maxD;
+    controls.minPolarAngle = 0.1;
+    controls.maxPolarAngle = 1.4;
+    controls.addEventListener('start', () => {
+      this.camTween = null;
+      this.hint.classList.add('hide');
+    });
+
+    this.scene.add(new THREE.HemisphereLight(0xfff6e6, 0x2a2010, 1.7));
+    const sun = new THREE.DirectionalLight(0xfff0dc, 2.3);
+    sun.position.set(-8, 20, 14);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    const sc = sun.shadow.camera;
+    sc.left = -16; sc.right = 16; sc.top = 16; sc.bottom = -16;
+    sc.near = 1; sc.far = 60;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.03;
+    this.scene.add(sun);
+
+    const board = new THREE.Mesh(
+      new THREE.CylinderGeometry(15, 15.5, 0.6, 72),
+      new THREE.MeshStandardMaterial({ color: cfg.boardColor || 0x2e1c14, roughness: 0.65 })
+    );
+    board.position.y = -0.3;
+    board.receiveShadow = true;
+    this.scene.add(board);
+
+    this.foodGroup = new THREE.Group();
+    this.scene.add(this.foodGroup);
+
+    this.build();
+    this.setupPicking();
+    this.resize();
+    this.resetView(false);
+    new ResizeObserver(() => this.resize()).observe(container);
+    this.refresh();
+    renderer.setAnimationLoop(now => this.tick(now));
+    setTimeout(() => this.hint.classList.add('hide'), 6000);
+  }
+
+  build() {}
+  refresh() {}
+
+  setupPicking() {
+    const el = this.renderer.domElement;
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let down = null;
+    el.addEventListener('pointerdown', e => {
+      down = { x: e.clientX, y: e.clientY };
+    });
+    el.addEventListener('pointerup', e => {
+      const isTap = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
+      down = null;
+      if (!isTap) return;
+      const rect = el.getBoundingClientRect();
+      ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, this.camera);
+      for (const hit of raycaster.intersectObjects(this.pickables, true)) {
+        let o = hit.object;
+        while (o && !o.userData.pick) o = o.parent;
+        if (o) {
+          onScenePick(o.userData.pick, hit.point, o);
+          return;
+        }
+      }
+      onScenePick(null, null, null);
+    });
+  }
+
+  resize() {
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (!w || !h) return;
+    this.size = { w, h };
+    this.renderer.setSize(w, h);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+  }
+
+  homePosition() {
+    const dist = this.cfg.dist * Math.max(1, 1.5 / this.camera.aspect);
+    return this.homeDir.clone().multiplyScalar(dist).add(this.controls.target);
+  }
+
+  resetView(animate = true) {
+    const to = this.homePosition();
+    if (!animate) {
+      this.camera.position.copy(to);
+      this.controls.update();
+      return;
+    }
+    const target = this.controls.target;
+    const from = new THREE.Spherical().setFromVector3(this.camera.position.clone().sub(target));
+    const end = new THREE.Spherical().setFromVector3(to.clone().sub(target));
+    let dTheta = end.theta - from.theta;
+    dTheta = Math.atan2(Math.sin(dTheta), Math.cos(dTheta));
+    this.camTween = { from, end, dTheta, start: performance.now(), dur: 650 };
+    playTone(500, 'sine', 0.06);
+  }
+
+  toScreen(x, y, z) {
+    const v = this.tmpVec.set(x, y, z).project(this.camera);
+    return { x: (v.x * 0.5 + 0.5) * this.size.w, y: (-v.y * 0.5 + 0.5) * this.size.h };
+  }
+
+  addTween(dur, ease, apply, delay = 0) {
+    apply(ease(0));
+    this.tweens.push({ start: performance.now() + delay, dur, ease, apply });
+  }
+
+  tick(now) {
+    if (this.camTween) {
+      const tw = this.camTween;
+      const k = easeOutCubic(Math.min(1, (now - tw.start) / tw.dur));
+      const s = new THREE.Spherical(
+        tw.from.radius + (tw.end.radius - tw.from.radius) * k,
+        tw.from.phi + (tw.end.phi - tw.from.phi) * k,
+        tw.from.theta + tw.dTheta * k
+      );
+      this.camera.position.setFromSpherical(s).add(this.controls.target);
+      if (k >= 1) this.camTween = null;
+    }
+    this.controls.update();
+    this.tweens = this.tweens.filter(tw => {
+      const t = Math.min(1, Math.max(0, (now - tw.start) / tw.dur));
+      tw.apply(tw.ease(t));
+      return t < 1;
+    });
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  dropIn(obj, delay = 0, height = 6) {
+    const toY = obj.position.y;
+    const fromY = toY + height;
+    this.addTween(560, easeOutBounce, k => { obj.position.y = fromY + (toY - fromY) * k; }, delay);
+  }
+
+  pulse(obj) {
+    const s0 = obj.scale.clone();
+    this.addTween(420, x => x, k => obj.scale.copy(s0).multiplyScalar(1 + 0.12 * Math.sin(k * Math.PI)));
+  }
+
+  spawnFloatingTag(text, point = null, cls = '') {
+    const at = point || this.cfg.floatAt;
+    const p = this.toScreen(at.x, at.y + 0.6, at.z);
+    const el = document.createElement('div');
+    el.className = 'scene-float' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    el.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`;
+    el.addEventListener('animationend', () => el.remove());
+    this.labelLayer.appendChild(el);
+  }
+}
+
+function show3DError() {
+  const hint = document.getElementById('scene-hint');
+  hint.textContent = '⚠️ 3D 畫面載入失敗（請確認網路），點餐功能仍可正常使用';
+  hint.classList.remove('hide');
+  document.getElementById('scene-reset').hidden = true;
+}
+
+/**
+ * ============================================================================
+ * 5. 蛋餅 3D：白色橢圓盤上的蛋餅捲
+ *    - 切塊：前後兩排、每排 3 塊，往後仰露出螺旋切面
+ *    - 不切：一整條橫躺
+ *    - 醬料是一條條沿著蛋餅表面彎來彎去的管子，選了會「淋」上去
+ * ============================================================================
+ */
+const PLATE = { rx: 7.6, rz: 5.2, top: 0.32 };
+const LEAN = 0.62;
+const PIECE_LEN = 1.05;
+const ROLL_LEN = 7.2;
+
+function crepeSideMaterial(crust) {
+  return cachedMat('side|' + crust.id, () => {
+    const rnd = makeRng(hashStr('side|' + crust.id));
+    const pal = crust.pal;
+    const cvs = makeCanvas(256, (ctx, S) => {
+      ctx.fillStyle = pal.side;
+      ctx.fillRect(0, 0, S, S);
+      for (let i = 0; i < 60; i++) {
+        const x = rnd() * S;
+        const y = rnd() * S;
+        const r = 6 + rnd() * 18;
+        tiled(S, x, y, (gx, gy) => {
+          ctx.fillStyle = 'rgba(190, 130, 50, 0.28)';
+          ctx.beginPath(); ctx.ellipse(gx, gy, r, r * 0.7, 0, 0, TAU); ctx.fill();
+        });
+      }
+      for (let i = 0; i < 120; i++) {
+        const x = rnd() * S;
+        const y = rnd() * S;
+        tiled(S, x, y, (gx, gy) => {
+          ctx.fillStyle = pal.spot;
+          ctx.beginPath(); ctx.arc(gx, gy, 1 + rnd() * 2, 0, TAU); ctx.fill();
+        });
+      }
+      if (crust.flaky) {
+        for (let y = 0; y < S; y += 6) {
+          ctx.strokeStyle = y % 12 ? 'rgba(255, 235, 180, 0.5)' : 'rgba(150, 90, 20, 0.35)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S, y + 3); ctx.stroke();
+        }
+      }
+    });
+    const tex = canvasTexture(cvs, true);
+    tex.repeat.set(2, 1);
+    return new THREE.MeshStandardMaterial({ map: tex, roughness: crust.flaky ? 0.5 : 0.7 });
+  });
+}
+
+class OmeletScene extends SceneBase {
+  build() {
+    // 白瓷橢圓盤 + 藍色細邊
+    const plateGeo = new THREE.CylinderGeometry(1, 0.94, PLATE.top, 64);
+    plateGeo.scale(PLATE.rx, 1, PLATE.rz);
+    const plate = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({ color: 0xf8f6f1, roughness: 0.22 }));
+    plate.position.y = PLATE.top / 2;
+    plate.receiveShadow = true;
+    plate.castShadow = true;
+    this.scene.add(plate);
+    const rimGeo = new THREE.TorusGeometry(1, 0.012, 6, 96);
+    rimGeo.rotateX(Math.PI / 2);
+    rimGeo.scale(PLATE.rx * 0.93, 1, PLATE.rz * 0.93);
+    const rim = new THREE.Mesh(rimGeo, new THREE.MeshStandardMaterial({ color: 0x2f5fa7, roughness: 0.3 }));
+    rim.position.y = PLATE.top + 0.005;
+    this.scene.add(rim);
+
+    this.spiralCanvas = document.createElement('canvas');
+    this.spiralCanvas.width = 512;
+    this.spiralCanvas.height = 512;
+    this.spiralTex = canvasTexture(this.spiralCanvas);
+    this.capMat = new THREE.MeshStandardMaterial({ map: this.spiralTex, roughness: 0.6 });
+    this.spiralKey = '';
+    this.tempGeos = [];
+  }
+
+  // anim：'omelet' 蛋餅放上盤 | 'fill' 蛋餅彈一下 | 'sauce' 淋醬 | 'drink' 飲料 | 'all'
+  refresh(anim = null, totals = calculateTotals()) {
+    this.tweens = [];
+    this.foodGroup.clear();
+    this.tempGeos.forEach(g => g.dispose());
+    this.tempGeos = [];
+    this.pickables = [];
+    this.mainLabel.textContent = getMainLabelText(totals);
+
+    const crust = CRUSTS.find(c => c.id === state.crust);
+    if (crust) {
+      const key = [crust.id, state.eggs, state.scallion, state.addons.join(',')].join('|');
+      if (key !== this.spiralKey) {
+        drawSpiralTex(this.spiralCanvas.getContext('2d'), 512, { key, crust, eggs: state.eggs, scallion: state.scallion, addons: state.addons });
+        this.spiralTex.needsUpdate = true;
+        this.spiralKey = key;
+      }
+      const rr = Math.round((1.0 + 0.08 * (state.eggs - 1) + 0.04 * Math.min(state.addons.length, MAX_ADDONS)) * 100) / 100;
+      const side = crepeSideMaterial(crust);
+      const mats = [side, this.capMat, this.capMat];
+      const group = new THREE.Group();
+      group.userData.pick = { type: 'omelet' };
+      const sauceLines = [];
+
+      if (state.cut) {
+        const geo = cachedGeo('piece|' + rr, () => {
+          const g = new THREE.CylinderGeometry(rr, rr, PIECE_LEN, 40);
+          g.rotateX(Math.PI / 2);
+          return g;
+        });
+        const spacing = rr * 2 + 0.2;
+        const cy = PLATE.top + rr * Math.cos(LEAN) + (PIECE_LEN / 2) * Math.sin(LEAN);
+        const N = new THREE.Vector3(0, Math.sin(LEAN), Math.cos(LEAN));
+        const U = new THREE.Vector3(0, Math.cos(LEAN), -Math.sin(LEAN));
+        const rnd = makeRng(hashStr('pieces|' + key));
+        [-1.55, 1.45].forEach((z, row) => {
+          const centers = [];
+          for (let i = 0; i < 3; i++) {
+            const x = (i - 1) * spacing + (row ? spacing * 0.22 : -spacing * 0.22);
+            const m = new THREE.Mesh(geo, mats);
+            m.position.set(x, cy, z);
+            m.rotation.set(-LEAN, 0, rnd() * TAU);
+            m.castShadow = true;
+            m.receiveShadow = true;
+            group.add(m);
+            centers.push(new THREE.Vector3(x, cy, z));
+          }
+          // 每排一條醬：在每塊的切面上彎來彎去
+          sauceLines.push(k => {
+            const pts = [];
+            centers.forEach((c, i) => {
+              for (let t = 0; t <= 8; t++) {
+                const a = -rr * 0.7 + (rr * 1.4 * t) / 8;
+                const b = Math.sin(t * 1.3 + k * 1.9 + i * 0.7) * rr * 0.42 + (k - 1) * rr * 0.12;
+                pts.push(c.clone().addScaledVector(new THREE.Vector3(1, 0, 0), a).addScaledVector(U, b).addScaledVector(N, PIECE_LEN / 2 + 0.05));
+              }
+            });
+            return pts;
+          });
+        });
+      } else {
+        const geo = cachedGeo('roll|' + rr, () => {
+          const g = new THREE.CylinderGeometry(rr, rr, ROLL_LEN, 48);
+          g.rotateZ(Math.PI / 2);
+          return g;
+        });
+        const m = new THREE.Mesh(geo, mats);
+        m.position.set(0, PLATE.top + rr, 0.2);
+        m.rotation.x = 0.3;
+        m.castShadow = true;
+        m.receiveShadow = true;
+        group.add(m);
+        sauceLines.push(k => {
+          const pts = [];
+          for (let t = 0; t <= 40; t++) {
+            const x = -ROLL_LEN / 2 + 0.4 + ((ROLL_LEN - 0.8) * t) / 40;
+            const zz = Math.sin(t * 0.85 + k * 1.4) * rr * 0.55;
+            const y = Math.sqrt(Math.max(0, rr * rr - zz * zz)) + 0.06 + k * 0.015;
+            pts.push(new THREE.Vector3(x, PLATE.top + rr + y, 0.2 + zz));
+          }
+          return pts;
+        });
+      }
+
+      // 醬料：TubeGeometry 沿曲線長出來，用 drawRange 做出「淋上去」的動畫
+      state.sauces.forEach((id, k) => {
+        const s = SAUCE_MAP[id];
+        const mat = cachedMat('sauce|' + id, () => new THREE.MeshStandardMaterial({ color: s.color, roughness: 0.25 }));
+        sauceLines.forEach((line, li) => {
+          const curve = new THREE.CatmullRomCurve3(line(k));
+          const tube = new THREE.TubeGeometry(curve, 160, 0.075, 8, false);
+          this.tempGeos.push(tube);
+          const mesh = new THREE.Mesh(tube, mat);
+          mesh.castShadow = true;
+          group.add(mesh);
+          if (anim === 'sauce' || anim === 'all') {
+            const total = tube.index.count;
+            this.addTween(700, x => x, t => tube.setDrawRange(0, Math.floor(total * t)), (anim === 'all' ? 400 : 0) + k * 160 + li * 120);
+          }
+        });
+      });
+
+      this.foodGroup.add(group);
+      this.pickables.push(group);
+      if (anim === 'omelet' || anim === 'all') this.dropIn(group, 0, 6);
+      if (anim === 'fill') this.pulse(group);
+    }
+
+    const drink = getDrink();
+    if (drink) {
+      const cup = buildDrinkCup(drink);
+      cup.position.set(-7.4, 0, -4.6);
+      cup.userData.pick = { type: 'drink' };
+      this.foodGroup.add(cup);
+      this.pickables.push(cup);
+      if (anim === 'drink' || anim === 'all') this.dropIn(cup, anim === 'all' ? 300 : 0, 4);
+    }
+  }
+}
+
+/**
+ * ============================================================================
+ * 6. 三步驟點餐流程（① 餅皮蛋 → ② 加料 → ③ 醬料飲料）與算錢・算卡路里・算重量
+ * ============================================================================
+ */
+const STEP_NEXT_LABELS = { 1: '下一步：加料 →', 2: '下一步：醬料飲料 →', 3: '🧾 結帳明細' };
+
+function getCrustInfo() {
+  const crust = CRUSTS.find(c => c.id === state.crust);
+  if (!crust) return null;
+  const egg = EGG_OPTIONS.find(e => e.n === state.eggs);
+  return {
+    crust,
+    label: `${crust.name}・${state.eggs} 顆蛋`,
+    weight: crust.weight + EGG.weight * state.eggs,
+    kcal: crust.kcal + EGG.kcal * state.eggs,
+    price: crust.price + egg.price
+  };
+}
+
+function getDrink() {
+  const d = DRINKS.find(x => x.id === state.drink);
+  return d && d.id !== 'none' ? d : null;
+}
+
+function calculateTotals() {
+  const c = getCrustInfo();
+  let foodWeight = 0;
+  let foodKcal = 0;
+  let rawPrice = 0;
+  const add = x => {
+    foodWeight += x.weight;
+    foodKcal += x.kcal;
+    rawPrice += x.price || 0;
+  };
+  if (c) {
+    add(c);
+    if (state.scallion) add(SCALLION);
+    state.addons.forEach(id => add(ADDON_MAP[id]));
+    state.sauces.forEach(id => add(SAUCE_MAP[id]));
+  }
+  const d = c ? getDrink() : null;
+  if (d) rawPrice += d.price;
+  const distinct = new Set(state.addons).size;
+  const discount = c && d && distinct >= 2 ? COMBO_DISCOUNT : 0;
+  return {
+    foodWeight, foodKcal, rawPrice, discount, distinct,
+    totalKcal: foodKcal + (d ? d.kcal : 0),
+    finalPrice: Math.max(0, rawPrice - discount),
+    addonPrice: state.addons.reduce((s, id) => s + ADDON_MAP[id].price, 0),
+    dayPct: Math.round((foodKcal / DAILY_KCAL) * 100)
+  };
+}
+
+function getMainLabelText(totals) {
+  const c = getCrustInfo();
+  if (!c) return '🥚 請先選餅皮（餅皮／粉漿／酥皮）';
+  return `🥚 ${c.crust.short}・${state.eggs}顆蛋・加料 ${state.addons.length} 份・${state.cut ? '切塊' : '不切'} ｜ ${totals.foodKcal}kcal・一天的 ${totals.dayPct}%`;
+}
+
+function setText(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+function render(anim = null) {
+  const totals = calculateTotals();
+  updateUI(totals);
+  if (sceneView) sceneView.refresh(anim, totals);
+}
+
+function floatTag(text) {
+  if (sceneView) sceneView.spawnFloatingTag(text);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+}
+
+const thumbCache = {};
+function getThumb(id) {
+  if (!thumbCache[id]) {
+    const cvs = document.createElement('canvas');
+    cvs.width = 108;
+    cvs.height = 84;
+    drawArt(cvs.getContext('2d'), id, 108, 84);
+    thumbCache[id] = cvs.toDataURL();
+  }
+  return thumbCache[id];
+}
+
+function rejectWithToast(msg) {
+  playTone(220, 'square', 0.08);
+  showToast(msg);
+}
+
+function goToStep(step) {
+  if (step < 1 || step > 3) return false;
+  if (step > 1 && !state.crust) {
+    rejectWithToast('請先選餅皮：餅皮／粉漿／酥皮');
+    return false;
+  }
+  state.step = step;
+  playTone(460, 'triangle', 0.06);
+  render();
+  return true;
+}
+
+function goNextStep() {
+  if (state.step < 3) goToStep(state.step + 1);
+  else openCheckoutModal();
+}
+
+function onScenePick(pick, point, obj) {
+  if (!pick) {
+    if (!state.crust) rejectWithToast('先選一種餅皮，老闆才開始煎');
+    return;
+  }
+  playTone(640, 'sine', 0.06);
+  const totals = calculateTotals();
+  let text = '';
+  if (pick.type === 'omelet') {
+    const names = state.addons.map(id => ADDON_MAP[id].name);
+    text = `蛋餅 ${totals.foodWeight}g · ${totals.foodKcal}kcal${names.length ? '・' + [...new Set(names)].join('、') : ''}`;
+  } else if (pick.type === 'drink') {
+    const d = getDrink();
+    text = `${d.name} ${d.weight}ml · ${d.kcal}kcal · $${d.price}`;
+  }
+  if (sceneView) {
+    sceneView.pulse(obj);
+    sceneView.spawnFloatingTag(text, point, 'info');
+  }
+}
+
+// ---------- ① 餅皮・蛋 ----------
+
+function selectCrust(id) {
+  state.crust = id;
+  playTone(560, 'triangle', 0.08);
+  render('omelet');
+  const c = getCrustInfo();
+  floatTag(`${c.label} ${c.weight}g | ${c.kcal}kcal | $${c.price}`);
+}
+
+function setEggs(n) {
+  if (!state.crust) {
+    rejectWithToast('請先選餅皮，再決定幾顆蛋');
+    return;
+  }
+  state.eggs = n;
+  playTone(420 + n * 90, 'sine', 0.08);
+  render('fill');
+  floatTag(`🍳 ${n} 顆蛋 ${EGG.weight * n}g | ${EGG.kcal * n}kcal`);
+}
+
+function toggleScallion() {
+  state.scallion = !state.scallion;
+  playTone(state.scallion ? 600 : 320, 'sine', 0.07);
+  render('fill');
+}
+
+// ---------- ② 加料 ----------
+
+function addAddon(id) {
+  const a = ADDON_MAP[id];
+  if (state.addons.length >= MAX_ADDONS) {
+    rejectWithToast(`最多加 ${MAX_ADDONS} 份料，再多就捲不起來了`);
+    return;
+  }
+  if (state.addons.filter(x => x === id).length >= MAX_EACH) {
+    rejectWithToast(`${a.name}最多加 ${MAX_EACH} 份`);
+    return;
+  }
+  state.addons.push(id);
+  playTone(540, 'square', 0.09);
+  render('fill');
+  floatTag(`+${a.name}（${a.unit}）${a.weight}g | ${a.kcal}kcal | +$${a.price}`);
+}
+
+function removeAddon(id) {
+  const idx = state.addons.lastIndexOf(id);
+  if (idx === -1) return;
+  state.addons.splice(idx, 1);
+  playTone(280, 'sine', 0.08);
+  render('fill');
+}
+
+// ---------- ③ 醬料・切法・飲料 ----------
+
+function toggleSauce(id) {
+  const i = state.sauces.indexOf(id);
+  if (i === -1) state.sauces.push(id);
+  else state.sauces.splice(i, 1);
+  playTone(i === -1 ? 620 : 320, 'sine', 0.07);
+  render(i === -1 ? 'sauce' : null);
+}
+
+function setCut(cut) {
+  state.cut = cut;
+  playTone(cut ? 640 : 360, 'square', 0.07);
+  render('omelet');
+}
+
+function setDrink(id) {
+  state.drink = id;
+  playTone(id === 'none' ? 320 : 660, 'triangle', 0.08);
+  render(id === 'none' ? null : 'drink');
+  const d = getDrink();
+  if (d) floatTag(`+${d.name} ${d.kcal}kcal | +$${d.price}`);
+}
+
+// ---------- 建立介面元素 ----------
+
+function makeOptButton(parentId, label, small, onClick, extra = false) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'opt-btn' + (extra ? ' extra-btn' : '');
+  btn.innerHTML = `${label}<small>${small}</small>`;
+  btn.onclick = onClick;
+  document.getElementById(parentId).appendChild(btn);
+  return btn;
+}
+
+function setPressed(btn, on) {
+  btn.classList.toggle('active', on);
+  btn.setAttribute('aria-pressed', on);
+}
+
+const crustRefs = {};
+const optRefs = { egg: {}, sauce: {}, cut: {}, drink: {} };
+const addonCardRefs = {};
+
+function buildUI() {
+  CRUSTS.forEach(c => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'choice-card';
+    card.innerHTML = `
+      <span class="dish-badge-count" hidden>✓</span>
+      <span class="dish-thumb-wrap"><img class="dish-thumb" src="${getThumb('crust_' + c.id)}" alt=""></span>
+      <span class="choice-name">${c.name}</span>
+      <span class="choice-desc">${c.desc}</span>
+      <span class="dish-meta"><span class="w-tag">${c.weight}g</span> · <span class="k-tag">${c.kcal}卡</span></span>
+      <span class="dish-price-tag">$${c.price}</span>`;
+    card.onclick = () => selectCrust(c.id);
+    document.getElementById('crust-grid').appendChild(card);
+    crustRefs[c.id] = { card, badge: card.querySelector('.dish-badge-count') };
+  });
+  EGG_OPTIONS.forEach(e => {
+    optRefs.egg[e.n] = makeOptButton('egg-buttons', `${e.n} 顆蛋`, e.price ? `+$${e.price}` : '原價', () => setEggs(e.n));
+  });
+  optRefs.scallion = makeOptButton('egg-buttons', '+蔥花', '免費', toggleScallion, true);
+
+  const grid = document.getElementById('grid-addons');
+  const title = document.createElement('div');
+  title.className = 'grid-section-title';
+  title.textContent = `🥓 加料（最多 ${MAX_ADDONS} 份，每樣最多 ${MAX_EACH} 份）`;
+  grid.appendChild(title);
+  ADDONS.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'dish-card';
+    card.innerHTML = `
+      <button class="dish-pick" type="button">
+        <span class="dish-thumb-wrap"><img class="dish-thumb" src="${getThumb(a.id)}" alt=""></span>
+        <span class="dish-name">${a.name}</span>
+        <span class="dish-meta">${a.unit}<br><span class="w-tag">${a.weight}g</span> · <span class="k-tag">${a.kcal}卡</span></span>
+        <span class="dish-price-tag">+$${a.price}</span>
+      </button>
+      <button class="dish-remove-btn" type="button" aria-label="拿掉一份${a.name}" hidden>−</button>
+      <span class="dish-badge-count" hidden></span>`;
+    card.querySelector('.dish-pick').onclick = () => addAddon(a.id);
+    card.querySelector('.dish-remove-btn').onclick = () => removeAddon(a.id);
+    grid.appendChild(card);
+    addonCardRefs[a.id] = { card, removeBtn: card.querySelector('.dish-remove-btn'), badge: card.querySelector('.dish-badge-count') };
+  });
+
+  SAUCES.forEach(s => {
+    optRefs.sauce[s.id] = makeOptButton('sauce-buttons', s.name, `+${s.kcal}卡`, () => toggleSauce(s.id), true);
+  });
+  optRefs.cut.cut = makeOptButton('cut-buttons', '🔪 切塊', '切成 6 塊', () => setCut(true));
+  optRefs.cut.whole = makeOptButton('cut-buttons', '🌯 不切', '整條拿著吃', () => setCut(false));
+  DRINKS.forEach(d => {
+    optRefs.drink[d.id] = makeOptButton('drink-buttons', d.name, d.price ? `$${d.price}` : '—', () => setDrink(d.id));
+  });
+
+  const wrap = document.getElementById('cash-btns');
+  [{ key: 'exact', label: '付剛好' }, ...CASH_BILLS.map(b => ({ key: b, label: `$${b}` }))].forEach(opt => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cash-btn';
+    btn.textContent = opt.label;
+    btn.dataset.key = opt.key;
+    btn.onclick = () => setCashChoice(opt.key);
+    wrap.appendChild(btn);
+  });
+}
+
+// ---------- 更新畫面 ----------
+
+function updateUI(totals = calculateTotals()) {
+  const c = getCrustInfo();
+  const drink = getDrink();
+
+  setText('ui-total-weight', `${totals.foodWeight} g`);
+  setText('ui-total-kcal', `${totals.totalKcal} kcal`);
+  setText('ui-total-price', `NT$ ${totals.finalPrice}`);
+
+  const sauceNames = state.sauces.map(id => SAUCE_MAP[id].name).join('+');
+  const stepDone = { 1: !!c, 2: state.addons.length > 0, 3: state.sauces.length > 0 || !!drink };
+  const stepSub = {
+    1: c ? `${c.crust.short}・${state.eggs}顆蛋${state.scallion ? '・蔥' : ''}` : '餅皮／粉漿／酥皮',
+    2: state.addons.length ? [...new Set(state.addons.map(id => ADDON_MAP[id].name))].join('・') : '起司・培根・玉米…',
+    3: stepDone[3] ? `${sauceNames || '不加醬'}${drink ? '・' + drink.name : ''}` : '醬油膏・切法'
+  };
+  [1, 2, 3].forEach(n => {
+    const isActive = state.step === n;
+    const showDone = stepDone[n] && !isActive;
+    const tab = document.getElementById(`step-tab-${n}`);
+    tab.classList.toggle('active', isActive);
+    tab.classList.toggle('done', showDone);
+    tab.classList.toggle('locked', n > 1 && !c);
+    if (isActive) tab.setAttribute('aria-current', 'step');
+    else tab.removeAttribute('aria-current');
+    setText(`step-num-${n}`, showDone ? '✓' : n);
+    setText(`step-sub-${n}`, stepSub[n]);
+    document.getElementById(`panel-${n}`).hidden = !isActive;
+  });
+
+  setText('ui-p1-hint', c ? `${c.label} ${c.weight}g · ${c.kcal}kcal · $${c.price}` : '先選一種餅皮 👇');
+  CRUSTS.forEach(x => {
+    const ref = crustRefs[x.id];
+    const on = state.crust === x.id;
+    ref.card.classList.toggle('selected', on);
+    ref.card.setAttribute('aria-pressed', on);
+    ref.badge.hidden = !on;
+  });
+  EGG_OPTIONS.forEach(e => setPressed(optRefs.egg[e.n], state.eggs === e.n));
+  setPressed(optRefs.scallion, state.scallion);
+
+  setText('ui-p2-hint', `加料 ${state.addons.length}/${MAX_ADDONS} 份 · +$${totals.addonPrice}`);
+  ADDONS.forEach(a => {
+    const ref = addonCardRefs[a.id];
+    const count = state.addons.filter(id => id === a.id).length;
+    ref.card.classList.toggle('selected', count > 0);
+    ref.removeBtn.hidden = count === 0;
+    ref.badge.hidden = count === 0;
+    ref.badge.textContent = `×${count}`;
+  });
+
+  setText('ui-p3-hint', `${sauceNames || '不加醬'}・${state.cut ? '切塊' : '不切'}${drink ? '・' + drink.name : ''}`);
+  SAUCES.forEach(s => setPressed(optRefs.sauce[s.id], state.sauces.includes(s.id)));
+  setPressed(optRefs.cut.cut, state.cut);
+  setPressed(optRefs.cut.whole, !state.cut);
+  DRINKS.forEach(d => setPressed(optRefs.drink[d.id], state.drink === d.id));
+
+  const dealEl = document.getElementById('ui-deal-hint');
+  if (totals.discount) {
+    dealEl.textContent = `🎁 早餐套餐（加料 ${totals.distinct} 樣＋${drink.name}），折 $${COMBO_DISCOUNT}`;
+  } else {
+    const missing = [];
+    if (totals.distinct < 2) missing.push(`加料 ${2 - totals.distinct} 樣`);
+    if (!drink) missing.push('飲料');
+    dealEl.textContent = `🎁 再加 ${missing.join(' + ')}，早餐套餐折 $${COMBO_DISCOUNT}`;
+  }
+  dealEl.classList.toggle('unlocked', totals.discount > 0);
+
+  document.getElementById('btn-back').hidden = state.step === 1;
+  const nextBtn = document.getElementById('btn-next');
+  nextBtn.disabled = state.step === 1 && !c;
+  nextBtn.classList.toggle('ready', (state.step === 2 && state.addons.length >= 2) || (state.step === 3 && totals.discount > 0));
+  setText('ui-next-label', nextBtn.disabled ? '請先選餅皮' : STEP_NEXT_LABELS[state.step]);
+  setText('ui-checkout-btn-text', `NT$ ${totals.finalPrice}`);
+}
+
+// ---------- 頂部按鈕 ----------
+
+function randomOrder() {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  state.crust = pick(CRUSTS).id;
+  state.eggs = pick([1, 1, 2, 3]);
+  state.scallion = Math.random() < 0.8;
+  state.addons = [...ADDONS].sort(() => Math.random() - 0.5).slice(0, Math.floor(Math.random() * 4)).map(a => a.id);
+  state.sauces = SAUCES.filter(() => Math.random() < 0.45).map(s => s.id);
+  state.cut = Math.random() < 0.75;
+  state.drink = pick(DRINKS).id;
+  state.step = 3;
+  playTone(680, 'triangle', 0.12);
+  render('all');
+}
+
+function clearAll() {
+  Object.assign(state, { step: 1, crust: null, eggs: 1, scallion: true, addons: [], sauces: [], cut: true, drink: 'none' });
+  playTone(300, 'sine', 0.1);
+  render();
+}
+
+function toggleSound() {
+  state.soundOn = !state.soundOn;
+  try {
+    localStorage.setItem('omelet-sound', state.soundOn ? '1' : '0');
+  } catch (e) {}
+  updateSoundButton();
+  playTone(600, 'sine', 0.06);
+}
+
+function updateSoundButton() {
+  const btn = document.getElementById('btn-sound');
+  btn.textContent = state.soundOn ? '🔊' : '🔇';
+  btn.setAttribute('aria-pressed', state.soundOn);
+}
+
+// ---------- 結帳與找錢 ----------
+
+function openCheckoutModal() {
+  playTone(740, 'triangle', 0.12);
+  const totals = calculateTotals();
+  const c = getCrustInfo();
+  const rows = [];
+  if (c) {
+    rows.push({ title: `【① 餅皮】${c.crust.name}`, sub: `重量 ${c.crust.weight}g ｜ 熱量 ${c.crust.kcal} kcal`, price: c.crust.price });
+    rows.push({
+      title: `【① 蛋】${state.eggs} 顆蛋${state.scallion ? '・加蔥花' : ''}`,
+      sub: `重量 ${EGG.weight * state.eggs}g ｜ 熱量 ${EGG.kcal * state.eggs} kcal`,
+      price: c.price - c.crust.price
+    });
+    const counts = {};
+    state.addons.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+    ADDONS.filter(a => counts[a.id]).forEach(a => {
+      const n = counts[a.id];
+      rows.push({ title: `【② 加料】${a.name} ×${n}`, sub: `重量 ${a.weight * n}g ｜ 熱量 ${a.kcal * n} kcal`, price: a.price * n });
+    });
+    rows.push(state.sauces.length
+      ? { title: `【③ 醬料】${state.sauces.map(id => SAUCE_MAP[id].name).join('、')}`, sub: `熱量 ${state.sauces.reduce((s, id) => s + SAUCE_MAP[id].kcal, 0)} kcal・${state.cut ? '切塊' : '不切'}`, price: 0 }
+      : { title: '【③ 醬料】不加醬', sub: state.cut ? '切塊' : '不切', price: 0, muted: true });
+    const d = getDrink();
+    if (d) rows.push({ title: `【③ 飲料】${d.name}`, sub: `${d.weight}ml ｜ 熱量 ${d.kcal} kcal`, price: d.price });
+  } else {
+    rows.push({ title: '【① 餅皮】（尚未選）', sub: '重量 0g ｜ 熱量 0 kcal', price: 0, muted: true });
+  }
+
+  document.getElementById('receipt-items').innerHTML = rows.map(x => `
+    <div class="receipt-row${x.muted ? ' muted' : ''}">
+      <div class="receipt-row-left"><strong>${x.title}</strong><span class="receipt-row-sub">${x.sub}</span></div>
+      <div class="receipt-price">NT$ ${x.price}</div>
+    </div>`).join('');
+  document.getElementById('receipt-summary').innerHTML = `
+    <div class="summary-line"><span>⚖️ 蛋餅重量：</span><span>${totals.foodWeight} g</span></div>
+    <div class="summary-line"><span>🔥 總熱量（含飲料）：</span><span>${totals.totalKcal} kcal</span></div>
+    <div class="summary-line fun"><span>📊 蛋餅佔一天建議熱量：</span><span>${totals.dayPct}%（以 ${DAILY_KCAL} kcal 計）</span></div>
+    <div class="summary-line"><span>原價小計：</span><span>NT$ ${totals.rawPrice}</span></div>
+    ${totals.discount ? `<div class="summary-line discount"><span>🎁 早餐套餐折抵：</span><span>- NT$ ${totals.discount}</span></div>` : ''}
+    <div class="summary-line total"><span>應付總金額：</span><span>NT$ ${totals.finalPrice}</span></div>`;
+
+  state.cashChoice = null;
+  state.customCash = null;
+  document.getElementById('cash-input').value = '';
+  updateCashChangeUI();
+  document.getElementById('checkout-modal').classList.add('show');
+}
+
+function closeCheckoutModal() {
+  document.getElementById('checkout-modal').classList.remove('show');
+}
+
+function setCashChoice(key) {
+  state.cashChoice = key;
+  state.customCash = null;
+  document.getElementById('cash-input').value = '';
+  playTone(560, 'sine', 0.05);
+  updateCashChangeUI();
+}
+
+function setPaidCashFromInput(value) {
+  const amount = Math.floor(Number(value));
+  if (value === '' || !Number.isFinite(amount) || amount < 0) {
+    state.cashChoice = null;
+    state.customCash = null;
+  } else {
+    state.cashChoice = 'custom';
+    state.customCash = amount;
+  }
+  updateCashChangeUI();
+}
+
+function updateCashChangeUI() {
+  const { finalPrice } = calculateTotals();
+  document.querySelectorAll('#cash-btns .cash-btn').forEach(btn => {
+    const key = btn.dataset.key === 'exact' ? 'exact' : Number(btn.dataset.key);
+    btn.classList.toggle('active', state.cashChoice === key);
+    btn.classList.toggle('short', key !== 'exact' && key < finalPrice);
+  });
+  const paid = state.cashChoice === null ? null
+    : state.cashChoice === 'exact' ? finalPrice
+    : state.cashChoice === 'custom' ? state.customCash
+    : state.cashChoice;
+  const resEl = document.getElementById('cash-change-result');
+  resEl.classList.toggle('pending', paid === null);
+  resEl.classList.toggle('short', paid !== null && paid < finalPrice);
+  if (paid === null) resEl.textContent = `應付 NT$ ${finalPrice}，請點選或輸入顧客付了多少`;
+  else if (paid < finalPrice) resEl.textContent = `⚠️ 付 $${paid} 不足，還差 NT$ ${finalPrice - paid}`;
+  else resEl.textContent = `✅ 收您 $${paid}，應找零 NT$ ${paid - finalPrice}`;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCheckoutModal();
+});
+
+window.onload = function () {
+  try {
+    state.soundOn = localStorage.getItem('omelet-sound') !== '0';
+  } catch (e) {}
+  buildUI();
+  updateSoundButton();
+  updateUI();
+
+  const start3D = () => {
+    if (sceneView) return;
+    try {
+      sceneView = new OmeletScene(document.getElementById('scene-3d'), {
+        target: [-0.6, 1.0, 0], dir: [-2, 15, 18], dist: 19, minD: 8, maxD: 45, boardColor: 0x2e2214,
+        floatAt: { x: 0, y: 3.5, z: 0 }
+      });
+    } catch (e) {
+      console.error(e);
+      show3DError();
+    }
+  };
+  if (window.THREE && window.OrbitControls) start3D();
+  else {
+    window.addEventListener('three-ready', start3D, { once: true });
+    setTimeout(() => { if (!sceneView) show3DError(); }, 10000);
+  }
+};
+</script>
+</body>
+</html>
